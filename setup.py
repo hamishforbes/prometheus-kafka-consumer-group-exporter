@@ -26,7 +26,8 @@ setup(
         'kafka-python >= 1.3',
         'jog',
         'prometheus-client >= 0.6.0',
-        'javaproperties'
+        'javaproperties',
+        'python-consul'
     ],
     entry_points={
         'console_scripts': [

@@ -3,6 +3,7 @@ import javaproperties
 import logging
 import signal
 import sys
+import os
 
 from jog import JogFormatter
 from kafka import KafkaConsumer
@@ -110,6 +111,33 @@ def main():
         consumer_config['bootstrap_servers'] = args.bootstrap_brokers
 
     consumer_config['bootstrap_servers'] = consumer_config['bootstrap_servers'].split(',')
+
+    # Consul mode
+    if os.environ.get('CONSUL_HOST'):
+        import consul
+        c = consul.Consul(
+                host=os.environ.get('CONSUL_HOST', '127.0.0.1'),
+                port=os.environ.get('CONSUL_PORT', 8500),
+                scheme=os.environ.get('CONSUL_SCHEME', 'http')
+            )
+
+        kafka_svc = os.environ.get('CONSUL_KAFKA_SERVICE', 'kafka')
+        nodes = c.health.service(kafka_svc)
+
+        if not nodes or len(nodes[1]) == 0:
+            print(f"Could not retrieve service info for {kafka_svc}")
+
+        else:
+            consul_hosts = []
+            for n in nodes[1]:
+                svc_addr = n['Service']['Address']
+                svc_port = n['Service']['Port']
+                if svc_addr == '':
+                    svc_addr = n['Node']['Address']
+                consul_hosts.append(f'{svc_addr}:{svc_port}')
+
+            consumer_config['bootstrap_servers'] = consul_hosts
+
 
     if args.from_start:
         consumer_config['auto_offset_reset'] = 'earliest'
